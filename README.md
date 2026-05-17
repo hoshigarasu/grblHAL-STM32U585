@@ -1,7 +1,3 @@
-
-
-https://github.com/user-attachments/assets/cd053115-391d-498e-9f35-c43bef3a23d7
-
 # grblHAL-STM32U585
 
 **grblHAL ported to STM32U585 — enabling the Arduino UNO Q as a standalone CNC controller**
