@@ -10,7 +10,7 @@ With this port, the UNO Q becomes a self-contained CNC platform:
 
 ```
 ┌─────────────────────────────────────────────┐
-│              Arduino UNO Q                   │
+│              Arduino UNO Q                  │
 │                                             │
 │  QRB2210 (Linux / Debian 13)                │
 │    └─ rs274ngc G-code interpreter           │
