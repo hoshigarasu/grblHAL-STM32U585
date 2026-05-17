@@ -1,0 +1,8 @@
+﻿# STM32CubeIDE build artifacts
+Debug/
+Release/
+*.elf
+*.hex
+*.bin
+*.map
+*.lst
