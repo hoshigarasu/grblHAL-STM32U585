@@ -72,6 +72,7 @@
 #define BAUD_RATE             115200   // ttyHS1 default baud rate
 #define SERIAL_STREAM             0    // stream instance 0 (serialInit)
 #define FLASH_ENABLE              1    // Enable settings persistence to internal flash
+#define COREXY                    1    // Enable CoreXY kinematics
 // ------------------------------------------------
 
 #if IS_NUCLEO_DEVKIT != 64 && !defined(USB_SERIAL_CDC) // The Nucleo boards has an off-chip UART to USB interface.
