@@ -75,7 +75,7 @@ stopped before flashing to prevent the STM32 reset line from triggering a QRB221
 ssh -t uno-q 'sudo systemctl stop arduino-router.service arduino-router-serial.service arduino-app-cli.service'
 
 # 2. Transfer ELF from build host
-scp /home/koji/public/grblHAL_UNO_Q.elf uno-q:/tmp/grblHAL_UNO_Q.elf
+scp /home/your_name/your_dir/grblHAL_UNO_Q.elf uno-q:/tmp/grblHAL_UNO_Q.elf
 
 # 3. Flash
 ssh -t uno-q \
@@ -201,6 +201,28 @@ Four issues specific to STM32U5 vs STM32F4:
 The grblHAL `driver_delay()` counter never decremented, causing `driver_setup()`'s 100 ms
 wait loop to spin forever. grblHAL never sent its startup message.
 **Fix**: Add `Driver_IncTick()` to `SysTick_Handler` in `Core/Src/stm32u5xx_it.c`.
+
+### Layer 5 — hal.f_step_timer derived for wrong APB configuration
+
+`driver.c` inherited `hal.f_step_timer = HAL_RCC_GetPCLK1Freq() * 2 / STEPPER_TIMER_DIV`
+from the STM32F4xx driver. The `* 2` is correct on STM32F4 where APB1 prescaler > 1
+makes `TIMxCLK = 2 × PCLK1`. On this U585 clock configuration APB1 prescaler = 1,
+so `TIMxCLK = PCLK1` directly (no doubling).
+
+The spurious `* 2` left `hal.f_step_timer` at 80 MHz while the actual TIM5 count
+frequency is 40 MHz. grblHAL programmed step intervals using a timer assumed
+2× faster than reality, so all step rates ran at half — every feed motion
+executed at exactly 50 % of commanded F, and step pulse widths configured as
+5 µs came out 10 µs on hardware.
+
+**Fix**: remove the `* 2` in `driver.c`:
+
+```c
+hal.f_step_timer = HAL_RCC_GetPCLK1Freq() / STEPPER_TIMER_DIV;
+```
+
+Verified: `G1 X100 F250` measures 24 s (was 48 s); 2-lap perimeter at F125
+measures 7.7 min (was 14 min).
 
 ### Flash write failure
 `FLASH_ENABLE` was undefined (defaulting to 0), so `memcpy_to_flash` was compiled out.
