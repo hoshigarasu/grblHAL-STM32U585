@@ -60,6 +60,8 @@
 #include "flash.h"
 #endif
 
+#include "triac_mcodes.h" /* UNO Q: TRIAC M-code integration */
+
 #if QEI_ENABLE || SPINDLE_ENCODER_ENABLE
 #include "grbl/encoders.h"
 #endif
@@ -2585,6 +2587,8 @@ static bool driver_setup (settings_t *settings)
     if(!DIGITAL_IN(SD_DETECT_PORT, SD_DETECT_PIN))
         sdcard_detect(true);
 #endif
+
+    triac_mcodes_register(); /* UNO Q: TRIAC M-code registration + hardware init */
 
     return IOInitDone;
 }
