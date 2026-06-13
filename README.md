@@ -13,8 +13,9 @@ With this port, the UNO Q becomes a self-contained CNC platform:
 │              Arduino UNO Q                  │
 │                                             │
 │  QRB2210 (Linux / Debian 13)                │
+│    └─ lcnc-suite WebUI (Vue 3, port 8000)   │
+│    └─ canon-grbl-bridge (FastAPI gateway)   │
 │    └─ rs274ngc G-code interpreter           │
-│    └─ canon-grbl-bridge (Python)            │
 │         │ LPUART1 / ttyHS1 (115200 baud)    │
 │  STM32U585 (grblHAL)                        │
 │    └─ real-time step generation             │
@@ -47,7 +48,14 @@ No Mesa card. No external motion controller. One board.
 | Y dir  | D6 | — |
 | Z dir  | D7 | — |
 | Enable | D8 | LOW |
-| X/Y/Z limit | D9/D10/D11 | — |
+| X limit (dummy) | PC6 | — (no switch connected) |
+| Y limit (dummy) | PC7 | — (no switch connected) |
+| Z limit (dummy) | PC8 | — (no switch connected) |
+| FAN control (TRIAC) | D11 / PB15 | via SpnEn header |
+| I2C2 SDA (DimmerLink) | D20 / PB11 | via SCL/SDA header |
+| I2C2 SCL (DimmerLink) | D21 / PB10 | via SCL/SDA header |
+| TEMP ADC | A0 / PA0 | via Abort header |
+| CUR-S ADC | A1 / PA1 | via Hold header |
 
 ---
 
@@ -234,12 +242,27 @@ always targeted Bank 1.
 
 ## Companion project
 
-[canon-grbl-bridge](https://github.com/hoshigarasu/canon-grbl-bridge) —
-a Python bridge that runs on the QRB2210, feeds G-code through the `rs274ngc` interpreter
-(from `linuxcnc-uspace`), and streams the resulting canonical motion commands to grblHAL
-over `ttyHS1`. Canned cycles, subroutines, and coordinate transforms are handled by
-`rs274ngc`; the bridge translates canon calls to `G0`/`G1`/`G2`/`G3` and sends them
-with proper flow control (one command per `ok` response).
+[canon-grbl-bridge](https://github.com/hoshigarasu/canon-grbl-bridge) runs on the QRB2210
+and provides a complete web-based CNC front-end for grblHAL.
+
+```
+lcnc-suite (Vue 3 WebUI)
+      │  WebSocket JSON — port 8000
+      ▼
+FastAPI gateway  (gateway/ package, systemd: grbl-lcnc-gateway)
+      │  30 Hz status push, NGC upload, 3D toolpath preview,
+      │  jog, WCS, spindle/coolant, file browsing
+      ▼
+rs274ngc (canon.py — from linuxcnc-uspace)
+      │  Canned cycles, subroutines, coordinate transforms
+      │  Canon calls translated to G0/G1/G2/G3
+      ▼
+ttyHS1  115200 baud, ok-based flow control
+      ▼
+grblHAL (STM32U585)
+```
+
+Mobile WebUI available at `http://<ip>:8000/?mobile`.
 
 ---
 
