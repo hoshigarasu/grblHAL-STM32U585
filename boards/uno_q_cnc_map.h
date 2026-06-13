@@ -53,14 +53,11 @@
 /* STEP_MASK: X(PB3)+Y(PB0) on GPIOB, Z(PA12) on GPIOA → split port, used for GPIO init only */
 #define STEP_MASK     (X_STEP_BIT | Y_STEP_BIT | Z_STEP_BIT)
 
-/* --- タイマー --- */
-#define STEPPER_TIMER_N     2
-#define STEPPER_TIMER       TIM2
-#define STEPPER_TIMER_IRQ   TIM2_IRQn
-
-#define PULSE_TIMER_N       3
-#define PULSE_TIMER         TIM3
-#define PULSE_TIMER_IRQ     TIM3_IRQn
+/* --- タイマー ---
+ * NOTE: STEPPER_TIMER_N は driver.h が #define STEPPER_TIMER_N 5 (TIM5) で
+ *       unconditional に定義するため、ここで定義しても上書きされる。
+ *       実効タイマーは TIM5 (driver.h 参照)。
+ * --- */
 
 /* STEPパルス幅補正値 (160MHz用、要校正) */
 #define STEP_PULSE_TOFF     16
