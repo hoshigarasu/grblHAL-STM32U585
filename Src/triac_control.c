@@ -110,7 +110,7 @@ static bool adc_init(void)
     return true;
 }
 
-static uint16_t adc_read(uint32_t channel)
+static uint16_t adc_read(uint32_t channel, bool *ok)
 {
     ADC_ChannelConfTypeDef cfg = {0};
     cfg.Channel      = channel;
@@ -121,9 +121,13 @@ static uint16_t adc_read(uint32_t channel)
     cfg.Offset       = 0;
     HAL_ADC_ConfigChannel(&s_hadc1, &cfg);
     HAL_ADC_Start(&s_hadc1);
-    if (HAL_ADC_PollForConversion(&s_hadc1, 10) != HAL_OK) return 0;
+    if (HAL_ADC_PollForConversion(&s_hadc1, 10) != HAL_OK) {
+        *ok = false;
+        return 0;
+    }
     uint16_t v = (uint16_t)HAL_ADC_GetValue(&s_hadc1);
     HAL_ADC_Stop(&s_hadc1);
+    *ok = true;
     return v;
 }
 
@@ -195,8 +199,20 @@ void triac_disable(void)
 /* ── センサー更新 + ファン制御 ───────────────────────────── */
 triac_status_t triac_update_sensors(void)
 {
-    s_status.temp_adc = adc_read(TRIAC_ADC_TEMP_CH);
-    s_status.cur_adc  = adc_read(TRIAC_ADC_CUR_CH);
+    bool temp_ok, cur_ok;
+    s_status.temp_adc = adc_read(TRIAC_ADC_TEMP_CH, &temp_ok);
+    s_status.cur_adc  = adc_read(TRIAC_ADC_CUR_CH,  &cur_ok);
+
+    /* ADC読み取り失敗 → フェイルセーフ: FAN強制ON + 出力停止 */
+    if (!temp_ok || !cur_ok) {
+        HAL_GPIO_WritePin(TRIAC_FAN_PORT, TRIAC_FAN_PIN_Msk, GPIO_PIN_SET);
+        s_status.fan_on = true;
+        if (!s_status.overheat) {
+            s_status.overheat = true;
+            triac_disable();
+        }
+        return s_status;
+    }
 
     /* 過熱保護 */
     if (s_status.temp_adc >= TRIAC_TEMP_OVERHEAT_ADC) {
