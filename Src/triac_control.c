@@ -35,7 +35,7 @@ static volatile bool            s_enabled = false;
 static triac_status_t           s_status  = {0};
 
 /* ── I2C初期化 ───────────────────────────────────────────── */
-static void i2c_init(void)
+static bool i2c_init(void)
 {
     __HAL_RCC_GPIOB_CLK_ENABLE();
     TRIAC_I2C_CLK_EN();
@@ -55,7 +55,7 @@ static void i2c_init(void)
     s_hi2c2.Init.DualAddressMode  = I2C_DUALADDRESS_DISABLED;
     s_hi2c2.Init.GeneralCallMode  = I2C_GENERALCALL_DISABLED;
     s_hi2c2.Init.NoStretchMode    = I2C_NOSTRETCH_DISABLED;
-    HAL_I2C_Init(&s_hi2c2);
+    return (HAL_I2C_Init(&s_hi2c2) == HAL_OK);
 }
 
 /* ── GPIO初期化 (FAN + アナログ) ────────────────────────── */
@@ -87,7 +87,7 @@ static void gpio_init(void)
  * PA0=ADC1_IN5, PA1=ADC1_IN6。
  * HAL定数はSTM32U5xxのstm32u5xx_hal_adc.hに従う。
  */
-static void adc_init(void)
+static bool adc_init(void)
 {
     __HAL_RCC_ADC1_CLK_ENABLE();
 
@@ -105,8 +105,9 @@ static void adc_init(void)
     s_hadc1.Init.DMAContinuousRequests = DISABLE;
     s_hadc1.Init.Overrun               = ADC_OVR_DATA_OVERWRITTEN;
     s_hadc1.Init.OversamplingMode      = DISABLE;
-    HAL_ADC_Init(&s_hadc1);
-    HAL_ADCEx_Calibration_Start(&s_hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
+    if (HAL_ADC_Init(&s_hadc1) != HAL_OK) return false;
+    if (HAL_ADCEx_Calibration_Start(&s_hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED) != HAL_OK) return false;
+    return true;
 }
 
 static uint16_t adc_read(uint32_t channel)
@@ -150,9 +151,11 @@ static bool dimmerlink_set_level(uint8_t level)
 void triac_init(void)
 {
     gpio_init();
-    i2c_init();
-    adc_init();
     memset(&s_status, 0, sizeof(s_status));
+    /* 初期化失敗は init_error に記録するが happy path の動作は変えない */
+    bool i2c_ok = i2c_init();
+    bool adc_ok = adc_init();
+    s_status.init_error = !(i2c_ok && adc_ok);
     dimmerlink_set_level(0);
     s_enabled = false;
     s_voltage  = TRIAC_VOLTAGE_OFF;

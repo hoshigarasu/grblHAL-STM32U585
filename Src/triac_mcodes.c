@@ -109,11 +109,12 @@ static void triac_mcode_execute(sys_state_t state, parser_block_t *gc_block)
         case MCODE_TRIAC_STATUS: {
             triac_status_t st = triac_get_status();
             snprintf(buf, sizeof(buf),
-                     "TRIAC temp=%u cur=%u fan=%s overheat=%s i2c_err=%s",
+                     "TRIAC temp=%u cur=%u fan=%s overheat=%s i2c_err=%s init_err=%s",
                      st.temp_adc, st.cur_adc,
-                     st.fan_on    ? "ON"  : "OFF",
-                     st.overheat  ? "YES" : "NO",
-                     st.i2c_error ? "YES" : "NO");
+                     st.fan_on     ? "ON"  : "OFF",
+                     st.overheat   ? "YES" : "NO",
+                     st.i2c_error  ? "YES" : "NO",
+                     st.init_error ? "YES" : "NO");
             report_message(buf, Message_Info);
             break;
         }
