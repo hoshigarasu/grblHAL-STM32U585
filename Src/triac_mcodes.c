@@ -133,17 +133,42 @@ static void triac_on_reset(void)
 }
 
 /* ── 登録 ────────────────────────────────────────────────── */
-static const user_mcode_ptrs_t triac_mcodes = {
-    .check    = triac_mcode_check,
-    .validate = triac_mcode_validate,
-    .execute  = triac_mcode_execute,
+static user_mcode_ptrs_t s_prev_mcode = {0}; /* 前段 user_mcode チェーン */
+
+static user_mcode_type_t triac_mcode_check_chain(user_mcode_t mcode)
+{
+    user_mcode_type_t r = triac_mcode_check(mcode);
+    if (r != UserMCode_Unsupported) return r;
+    return s_prev_mcode.check ? s_prev_mcode.check(mcode) : UserMCode_Unsupported;
+}
+
+static status_code_t triac_mcode_validate_chain(parser_block_t *gc_block)
+{
+    if (triac_mcode_check((user_mcode_t)gc_block->user_mcode) != UserMCode_Unsupported)
+        return triac_mcode_validate(gc_block);
+    return s_prev_mcode.validate ? s_prev_mcode.validate(gc_block) : Status_Unhandled;
+}
+
+static void triac_mcode_execute_chain(sys_state_t state, parser_block_t *gc_block)
+{
+    if (triac_mcode_check((user_mcode_t)gc_block->user_mcode) != UserMCode_Unsupported)
+        triac_mcode_execute(state, gc_block);
+    else if (s_prev_mcode.execute)
+        s_prev_mcode.execute(state, gc_block);
+}
+
+static const user_mcode_ptrs_t triac_mcodes_chained = {
+    .check    = triac_mcode_check_chain,
+    .validate = triac_mcode_validate_chain,
+    .execute  = triac_mcode_execute_chain,
 };
 
 void triac_mcodes_register(void)
 {
     triac_init();
 
-    grbl.user_mcode = triac_mcodes;
+    s_prev_mcode      = grbl.user_mcode; /* 前段を保存してからチェーン登録 */
+    grbl.user_mcode   = triac_mcodes_chained;
 
     s_prev_reset      = grbl.on_reset;
     grbl.on_reset     = triac_on_reset;
