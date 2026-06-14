@@ -21,7 +21,7 @@ check() {
 echo "=== grblHAL-STM32U585 completeness check ==="
 echo ""
 echo "--- UNO Q owned files ---"
-check "boards/uno_q_cnc_map.h"
+check "Inc/boards/uno_q_cnc_map.h"
 check "Inc/triac_control.h"
 check "Inc/triac_mcodes.h"
 check "Src/triac_control.c"

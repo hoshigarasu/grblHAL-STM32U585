@@ -16,13 +16,21 @@ These **must** be set in STM32CubeIDE:
 
 | Symbol | Value | Purpose |
 |--------|-------|---------|
-| `BOARD_UNO_Q_CNC` | *(defined, no value)* | Selects `boards/uno_q_cnc_map.h` pin map |
+| `BOARD_UNO_Q_CNC` | *(defined, no value)* | Selects `Inc/boards/uno_q_cnc_map.h` pin map |
 | `COREXY` | `1` | CoreXY kinematics (also set in `my_machine.h`) |
 | `STM32U585xx` | *(defined by CubeMX)* | MCU family selection |
 
 > **Note**: `BOARD_UNO_Q_CNC` is **not** defined in `my_machine.h` — it must be in the
-> CubeIDE preprocessor settings. Omitting it causes `boards/generic_map.h` to be used
+> CubeIDE preprocessor settings. Omitting it causes `Inc/boards/generic_map.h` to be used
 > (which does not exist in this repo → compile error).
+
+> **Path note**: `driver.h` (in `Inc/`) does `#include "boards/uno_q_cnc_map.h"`.
+> This is a quote-include, so GCC resolves it relative to `driver.h`'s own
+> directory first — i.e. **`Inc/boards/uno_q_cnc_map.h`**, not a project-root
+> `boards/` directory. The project's `-I` list (`../Core/Inc`,
+> `../Drivers/STM32U5xx_HAL_Driver/Inc`, etc., see `.cproject`) does not include
+> a project-root `boards/` path. Placing the board map anywhere else is silently
+> ignored by the build.
 
 ## Required HAL modules
 
@@ -61,7 +69,7 @@ included in the CubeIDE project from `Drivers/STM32U5xx_HAL_Driver/Src/`.
 | TIM3 | `PULSE_TIMER_N` in board map | **Overridden by `driver.h` — dead code in `uno_q_cnc_map.h`** |
 
 > See `driver.h` line 227: `#define STEPPER_TIMER_N 5` (no `#ifndef` guard).
-> The TIM2/TIM3 definitions in `boards/uno_q_cnc_map.h` have no effect.
+> The TIM2/TIM3 definitions in `Inc/boards/uno_q_cnc_map.h` have no effect.
 > HANDOFF documentation stating "TIM2=STEPPER/TIM3=PULSE" is stale.
 
 ## Flash procedure

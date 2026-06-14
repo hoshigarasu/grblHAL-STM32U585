@@ -22,7 +22,7 @@ This firmware is derived from the grblHAL STM32F4xx driver by Terje Io (GPLv3).
 
 ## UNO Q additions (not in upstream)
 
-- `boards/uno_q_cnc_map.h` — pin map for Arduino UNO Q + CNC Shield V3
+- `Inc/boards/uno_q_cnc_map.h` — pin map for Arduino UNO Q + CNC Shield V3
 - `Src/triac_control.c` / `Inc/triac_control.h` — DimmerLink I2C + ADC/FAN control
 - `Src/triac_mcodes.c` / `Inc/triac_mcodes.h` — grblHAL M810–M816 integration
 - `STM32U585AIIXQ_FLASH.ld` — linker script for STM32U585AI (2 MB flash, dual-bank)
