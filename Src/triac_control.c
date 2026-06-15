@@ -108,7 +108,12 @@ static bool adc_init(void)
     __HAL_RCC_ADC1_CLK_ENABLE();
 
     s_hadc1.Instance                   = ADC1;
-    s_hadc1.Init.ClockPrescaler        = ADC_CLOCK_ASYNC;
+    /* ADC_CLOCK_ASYNC (裸の定数) はSTM32U5 HALに存在しない。
+     * 有効な値は ADC_CLOCK_ASYNC_DIV{1,2,4,6,8,...} のみ (IS_ADC_CLOCKPRESCALER参照)。
+     * 無効値だとCKMODE/PRESCが不正なビットパターンになり、ADCにクロックが
+     * 供給されず ADRDY が立たず HAL_ADC_ERROR_INTERNAL (0x01) になる。
+     * HCLK≈160MHzに対しDIV4=40MHzでADC1の動作クロック仕様内に収める。 */
+    s_hadc1.Init.ClockPrescaler        = ADC_CLOCK_ASYNC_DIV4;
     s_hadc1.Init.Resolution            = ADC_RESOLUTION_12B;
     s_hadc1.Init.ScanConvMode          = ADC_SCAN_DISABLE;
     s_hadc1.Init.EOCSelection          = ADC_EOC_SINGLE_CONV;
