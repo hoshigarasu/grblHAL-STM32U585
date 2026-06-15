@@ -40,6 +40,12 @@ static bool i2c_init(void)
     __HAL_RCC_GPIOB_CLK_ENABLE();
     TRIAC_I2C_CLK_EN();
 
+    /* STM32U5: I2C2カーネルクロックを明示選択 (PCLK1 = リセット値と同じ、診断のため明示) */
+    RCC_PeriphCLKInitTypeDef pclk_i2c2 = {0};
+    pclk_i2c2.PeriphClockSelection = RCC_PERIPHCLK_I2C2;
+    pclk_i2c2.I2c2ClockSelection   = RCC_I2C2CLKSOURCE_PCLK1;
+    HAL_RCCEx_PeriphCLKConfig(&pclk_i2c2);
+
     GPIO_InitTypeDef g = {0};
     g.Pin       = TRIAC_I2C_SDA_PIN | TRIAC_I2C_SCL_PIN;
     g.Mode      = GPIO_MODE_AF_OD;
@@ -55,7 +61,11 @@ static bool i2c_init(void)
     s_hi2c2.Init.DualAddressMode  = I2C_DUALADDRESS_DISABLED;
     s_hi2c2.Init.GeneralCallMode  = I2C_GENERALCALL_DISABLED;
     s_hi2c2.Init.NoStretchMode    = I2C_NOSTRETCH_DISABLED;
-    return (HAL_I2C_Init(&s_hi2c2) == HAL_OK);
+    if (HAL_I2C_Init(&s_hi2c2) != HAL_OK) {
+        s_status.i2c_error_code = HAL_I2C_GetError(&s_hi2c2);
+        return false;
+    }
+    return true;
 }
 
 /* ── GPIO初期化 (FAN + アナログ) ────────────────────────── */
@@ -89,6 +99,12 @@ static void gpio_init(void)
  */
 static bool adc_init(void)
 {
+    /* STM32U5: ADC1/4+DACカーネルクロックを明示選択 (HCLK = リセット値と同じ、診断のため明示) */
+    RCC_PeriphCLKInitTypeDef pclk_adc = {0};
+    pclk_adc.PeriphClockSelection = RCC_PERIPHCLK_ADCDAC;
+    pclk_adc.AdcDacClockSelection = RCC_ADCDACCLKSOURCE_HCLK;
+    HAL_RCCEx_PeriphCLKConfig(&pclk_adc);
+
     __HAL_RCC_ADC1_CLK_ENABLE();
 
     s_hadc1.Instance                   = ADC1;
@@ -105,8 +121,14 @@ static bool adc_init(void)
     s_hadc1.Init.DMAContinuousRequests = DISABLE;
     s_hadc1.Init.Overrun               = ADC_OVR_DATA_OVERWRITTEN;
     s_hadc1.Init.OversamplingMode      = DISABLE;
-    if (HAL_ADC_Init(&s_hadc1) != HAL_OK) return false;
-    if (HAL_ADCEx_Calibration_Start(&s_hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED) != HAL_OK) return false;
+    if (HAL_ADC_Init(&s_hadc1) != HAL_OK) {
+        s_status.adc_error_code = HAL_ADC_GetError(&s_hadc1);
+        return false;
+    }
+    if (HAL_ADCEx_Calibration_Start(&s_hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED) != HAL_OK) {
+        s_status.adc_error_code = HAL_ADC_GetError(&s_hadc1);
+        return false;
+    }
     return true;
 }
 
@@ -148,6 +170,7 @@ static bool dimmerlink_set_level(uint8_t level)
         TRIAC_I2C_TIMEOUT_MS
     );
     s_status.i2c_error = (ret != HAL_OK);
+    if (ret != HAL_OK) s_status.i2c_error_code = HAL_I2C_GetError(&s_hi2c2);
     return (ret == HAL_OK);
 }
 

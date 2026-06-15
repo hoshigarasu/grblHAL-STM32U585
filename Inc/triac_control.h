@@ -90,6 +90,8 @@ typedef struct {
     bool     init_error;    /* 初期化失敗 (i2c_init_error || adc_init_error) */
     bool     i2c_init_error; /* HAL_I2C_Init失敗 (診断用、暫定) */
     bool     adc_init_error; /* HAL_ADC_Init/Calibration失敗 (診断用、暫定) */
+    uint32_t i2c_error_code; /* HAL_I2C_GetError() (診断用、暫定) */
+    uint32_t adc_error_code; /* HAL_ADC_GetError() (診断用、暫定) */
 } triac_status_t;
 
 /* ── 公開API ─────────────────────────────────────────────── */
