@@ -159,7 +159,9 @@ void triac_init(void)
     /* 初期化失敗は init_error に記録するが happy path の動作は変えない */
     bool i2c_ok = i2c_init();
     bool adc_ok = adc_init();
-    s_status.init_error = !(i2c_ok && adc_ok);
+    s_status.i2c_init_error = !i2c_ok;
+    s_status.adc_init_error = !adc_ok;
+    s_status.init_error     = !(i2c_ok && adc_ok);
     dimmerlink_set_level(0);
     s_enabled = false;
     s_voltage  = TRIAC_VOLTAGE_OFF;

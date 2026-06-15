@@ -86,8 +86,10 @@ typedef struct {
     uint16_t cur_adc;
     bool     fan_on;
     bool     overheat;
-    bool     i2c_error;    /* DimmerLink通信エラー */
-    bool     init_error;   /* 初期化失敗 (HAL_I2C_Init / HAL_ADC_Init) */
+    bool     i2c_error;     /* DimmerLink通信エラー */
+    bool     init_error;    /* 初期化失敗 (i2c_init_error || adc_init_error) */
+    bool     i2c_init_error; /* HAL_I2C_Init失敗 (診断用、暫定) */
+    bool     adc_init_error; /* HAL_ADC_Init/Calibration失敗 (診断用、暫定) */
 } triac_status_t;
 
 /* ── 公開API ─────────────────────────────────────────────── */
