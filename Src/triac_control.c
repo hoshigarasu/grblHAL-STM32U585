@@ -126,14 +126,28 @@ static bool adc_init(void)
     s_hadc1.Init.DMAContinuousRequests = DISABLE;
     s_hadc1.Init.Overrun               = ADC_OVR_DATA_OVERWRITTEN;
     s_hadc1.Init.OversamplingMode      = DISABLE;
-    if (HAL_ADC_Init(&s_hadc1) != HAL_OK) {
+
+    HAL_StatusTypeDef st_init = HAL_ADC_Init(&s_hadc1);
+    /* 成否に関わらずレジスタを撮る (HAL_ADC_Init直後の生状態) */
+    s_status.adc_cr  = ADC1->CR;
+    s_status.adc_isr = ADC1->ISR;
+    s_status.adc_ccr = __LL_ADC_COMMON_INSTANCE(ADC1)->CCR;
+    if (st_init != HAL_OK) {
         s_status.adc_error_code = HAL_ADC_GetError(&s_hadc1);
+        s_status.adc_fail_step  = 1; /* HAL_ADC_Init で失敗 */
         return false;
     }
-    if (HAL_ADCEx_Calibration_Start(&s_hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED) != HAL_OK) {
+
+    HAL_StatusTypeDef st_cal = HAL_ADCEx_Calibration_Start(&s_hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
+    if (st_cal != HAL_OK) {
         s_status.adc_error_code = HAL_ADC_GetError(&s_hadc1);
+        s_status.adc_fail_step  = 2; /* Calibration で失敗 */
+        s_status.adc_cr  = ADC1->CR;   /* キャリブ後の状態で上書き */
+        s_status.adc_isr = ADC1->ISR;
         return false;
     }
+
+    s_status.adc_fail_step = 0;
     return true;
 }
 

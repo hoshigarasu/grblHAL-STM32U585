@@ -92,6 +92,10 @@ typedef struct {
     bool     adc_init_error; /* HAL_ADC_Init/Calibration失敗 (診断用、暫定) */
     uint32_t i2c_error_code; /* HAL_I2C_GetError() (診断用、暫定) */
     uint32_t adc_error_code; /* HAL_ADC_GetError() (診断用、暫定) */
+    uint32_t adc_cr;         /* ADC1->CR スナップショット (診断用、暫定) */
+    uint32_t adc_isr;        /* ADC1->ISR スナップショット (診断用、暫定) */
+    uint32_t adc_ccr;        /* ADC common CCR スナップショット (診断用、暫定) */
+    uint8_t  adc_fail_step;  /* 0=OK, 1=HAL_ADC_Init失敗, 2=Calibration失敗 (診断用、暫定) */
 } triac_status_t;
 
 /* ── 公開API ─────────────────────────────────────────────── */

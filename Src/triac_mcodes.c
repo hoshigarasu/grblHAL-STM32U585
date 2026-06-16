@@ -121,6 +121,13 @@ static void triac_mcode_execute(sys_state_t state, parser_block_t *gc_block)
                      (unsigned long)st.i2c_error_code,
                      (unsigned long)st.adc_error_code);
             report_message(buf, Message_Info);
+            snprintf(buf, sizeof(buf),
+                     "TRIAC_ADC step=%u cr=0x%08lX isr=0x%08lX ccr=0x%08lX",
+                     (unsigned)st.adc_fail_step,
+                     (unsigned long)st.adc_cr,
+                     (unsigned long)st.adc_isr,
+                     (unsigned long)st.adc_ccr);
+            report_message(buf, Message_Info);
             break;
         }
         default:
