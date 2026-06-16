@@ -99,21 +99,18 @@ static void gpio_init(void)
  */
 static bool adc_init(void)
 {
-    /* STM32U5: ADC1/4+DACカーネルクロックを明示選択 (HCLK = リセット値と同じ、診断のため明示) */
-    RCC_PeriphCLKInitTypeDef pclk_adc = {0};
-    pclk_adc.PeriphClockSelection = RCC_PERIPHCLK_ADCDAC;
-    pclk_adc.AdcDacClockSelection = RCC_ADCDACCLKSOURCE_HCLK;
-    HAL_RCCEx_PeriphCLKConfig(&pclk_adc);
-
     __HAL_RCC_ADC1_CLK_ENABLE();
 
     s_hadc1.Instance                   = ADC1;
-    /* ADC_CLOCK_ASYNC (裸の定数) はSTM32U5 HALに存在しない。
-     * 有効な値は ADC_CLOCK_ASYNC_DIV{1,2,4,6,8,...} のみ (IS_ADC_CLOCKPRESCALER参照)。
-     * 無効値だとCKMODE/PRESCが不正なビットパターンになり、ADCにクロックが
-     * 供給されず ADRDY が立たず HAL_ADC_ERROR_INTERNAL (0x01) になる。
-     * HCLK≈160MHzに対しDIV4=40MHzでADC1の動作クロック仕様内に収める。 */
-    s_hadc1.Init.ClockPrescaler        = ADC_CLOCK_ASYNC_DIV4;
+    /* クロックモード: 同期 (CKMODE != 0, PCLKから分周)。
+     * 非同期モード (ADC_CLOCK_ASYNC_*, CKMODE=00) はADCDACカーネルclock muxから
+     * クロックを得るが、その源にHCLKを選んでも非同期ドメインにクロックが供給されず
+     * ADRDYが立たずキャリブレーションがHAL_ADC_ERROR_INTERNAL(0x01)で失敗する
+     * (実測: postcal cr=ADEN|ADVREGEN, isr=0=ADRDY立たず, ccr CKMODE=00)。
+     * grbl本体(ioports_analog.c)も ADC_CLOCK_SYNC_PCLK_DIV4 を使用しており、
+     * 共有ADC1のクロックモードを一致させることでモード競合も解消する。
+     * PCLK≈160MHz / DIV4 = 40MHz でADC1動作クロック仕様内。 */
+    s_hadc1.Init.ClockPrescaler        = ADC_CLOCK_SYNC_PCLK_DIV4;
     s_hadc1.Init.Resolution            = ADC_RESOLUTION_12B;
     s_hadc1.Init.ScanConvMode          = ADC_SCAN_DISABLE;
     s_hadc1.Init.EOCSelection          = ADC_EOC_SINGLE_CONV;
@@ -138,11 +135,8 @@ static bool adc_init(void)
         return false;
     }
 
-    /* grblのioports_init_analogが先にADC1をenable(ADEN=1)している場合、
-     * キャリブレーションは ADEN=0 が前提のため HAL_ADC_ERROR_INTERNAL で弾かれる。
-     * (実測 cr=0x10000001 = ADVREGEN|ADEN)
-     * HAL_ADC_Stop はHAL状態マシン依存で、別ハンドルがenableした本ADCには効かない。
-     * LLで直接 ADDIS をセットし、ハードがADENを落とすのを待つ。 */
+    /* キャリブレーションは ADEN=0 が前提。通常この時点でADEN=0だが、
+     * 何らかの経路で有効化されていた場合に備え、念のため無効化する(防御的)。 */
     if (LL_ADC_IsEnabled(ADC1) != 0UL) {
         LL_ADC_Disable(ADC1);
         uint32_t t0 = HAL_GetTick();
