@@ -150,12 +150,13 @@ static bool adc_init(void)
             /* ADEN自動クリア待ち (最大10ms) */
         }
     }
+    s_status.adc_cr_postdis = ADC1->CR; /* disable直後のcr (ADEN落ちたか) */
 
     HAL_StatusTypeDef st_cal = HAL_ADCEx_Calibration_Start(&s_hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
+    s_status.adc_cr_postcal = ADC1->CR; /* キャリブ呼び出し直後のcr */
     if (st_cal != HAL_OK) {
         s_status.adc_error_code = HAL_ADC_GetError(&s_hadc1);
         s_status.adc_fail_step  = 2; /* Calibration で失敗 */
-        s_status.adc_cr  = ADC1->CR;   /* キャリブ後の状態で上書き */
         s_status.adc_isr = ADC1->ISR;
         return false;
     }

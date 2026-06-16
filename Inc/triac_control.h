@@ -92,7 +92,9 @@ typedef struct {
     bool     adc_init_error; /* HAL_ADC_Init/Calibration失敗 (診断用、暫定) */
     uint32_t i2c_error_code; /* HAL_I2C_GetError() (診断用、暫定) */
     uint32_t adc_error_code; /* HAL_ADC_GetError() (診断用、暫定) */
-    uint32_t adc_cr;         /* ADC1->CR スナップショット (診断用、暫定) */
+    uint32_t adc_cr;         /* ADC1->CR スナップショット (HAL_ADC_Init直後) */
+    uint32_t adc_cr_postdis; /* ADC1->CR (LL_ADC_Disable直後) */
+    uint32_t adc_cr_postcal; /* ADC1->CR (Calibration呼出直後) */
     uint32_t adc_isr;        /* ADC1->ISR スナップショット (診断用、暫定) */
     uint32_t adc_ccr;        /* ADC common CCR スナップショット (診断用、暫定) */
     uint8_t  adc_fail_step;  /* 0=OK, 1=HAL_ADC_Init失敗, 2=Calibration失敗 (診断用、暫定) */
