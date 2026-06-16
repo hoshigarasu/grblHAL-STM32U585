@@ -141,9 +141,14 @@ static bool adc_init(void)
     /* grblのioports_init_analogが先にADC1をenable(ADEN=1)している場合、
      * キャリブレーションは ADEN=0 が前提のため HAL_ADC_ERROR_INTERNAL で弾かれる。
      * (実測 cr=0x10000001 = ADVREGEN|ADEN)
-     * キャリブレーション前に確実にADCを無効化する。 */
+     * HAL_ADC_Stop はHAL状態マシン依存で、別ハンドルがenableした本ADCには効かない。
+     * LLで直接 ADDIS をセットし、ハードがADENを落とすのを待つ。 */
     if (LL_ADC_IsEnabled(ADC1) != 0UL) {
-        HAL_ADC_Stop(&s_hadc1); /* ADSTP + ADDIS、ADEN=0まで待機 */
+        LL_ADC_Disable(ADC1);
+        uint32_t t0 = HAL_GetTick();
+        while (LL_ADC_IsEnabled(ADC1) != 0UL && (HAL_GetTick() - t0) < 10U) {
+            /* ADEN自動クリア待ち (最大10ms) */
+        }
     }
 
     HAL_StatusTypeDef st_cal = HAL_ADCEx_Calibration_Start(&s_hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
