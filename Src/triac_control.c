@@ -201,7 +201,11 @@ static uint16_t adc_read(uint32_t channel, bool *ok)
         return 0;
     }
     uint16_t v = (uint16_t)HAL_ADC_GetValue(&s_hadc1);
-    HAL_ADC_Stop(&s_hadc1);
+    /* HAL_ADC_Stopを呼ばない: ADENを1のまま維持する。
+     * STM32U5のADC_Enableは「ADEN=1なら前提チェックを素通りしてHAL_OK」だが、
+     * Stopで中途半端にdisableするとADEN=1残留状態で次のADC_Enable前提チェック
+     * (ADEN!=0で即HAL_ERROR/INTERNAL)に引っかかる。enable維持で単発変換を繰り返す。
+     * (実測: VREFINT初回変換はenable直後で完走(EOC), PA0は2回目enableで弾かれていた) */
     *ok = true;
     return v;
 }
@@ -247,7 +251,7 @@ static void adc_probe_vrefint(void)
         s_status.adc_vref_ok  = 1;
         s_status.adc_vref_val = (uint16_t)HAL_ADC_GetValue(&s_hadc1);
     }
-    HAL_ADC_Stop(&s_hadc1);
+    /* HAL_ADC_Stopは呼ばない: ADENを維持し、以降のadc_readで2回目enableを回避。 */
 }
 
 /* ── 初期化 ──────────────────────────────────────────────── */
