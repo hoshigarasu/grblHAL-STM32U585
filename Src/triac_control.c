@@ -101,27 +101,30 @@ static bool adc_init(void)
 {
     /* STM32U5のADCは非同期クロックモードのみ (ADC_CLOCK_SYNC_* は存在しない)。
      * 非同期ドメイン(CKMODE=00)はADCDACカーネルclock muxから給電される。
-     * 以前HCLKを選んだがHCLKは非同期ドメインに供給されずADRDYが立たず失敗した
-     * (実測 isr=0)。確実に供給でき、かつ自分で確実にONにできるHSI(16MHz内蔵RC)を
-     * 源に選ぶ。grblはMSIシステムクロックのみ構成しMSIKの明示有効化が無いため、
-     * MSIK依存は避けHSIを明示的に起こす。 */
+     * HCLKは非同期ドメインに供給されず失敗(実測isr=0)。HSIはシステムがMSI/PLL
+     * 構成のため HAL_RCC_OscConfig がHSI単独ONを弾いた可能性(戻り値未確認だった)。
+     * 本機はMSIをRANGE_0(48MHz)で常用しているため、MSI由来のカーネルクロックMSIKを
+     * 有効化し非同期源に使う。PLLには触れない(RCC_PLL_NONE)。 */
     RCC_OscInitTypeDef osc = {0};
-    osc.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-    osc.HSIState       = RCC_HSI_ON;
-    osc.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-    osc.PLL.PLLState   = RCC_PLL_NONE; /* 既存PLL構成に触れない */
-    HAL_RCC_OscConfig(&osc);
+    osc.OscillatorType = RCC_OSCILLATORTYPE_MSIK;
+    osc.MSIKState      = RCC_MSIK_ON;
+    osc.MSIKClockRange = RCC_MSIKRANGE_0; /* 48MHz, システムMSIと同レンジ */
+    osc.PLL.PLLState   = RCC_PLL_NONE;    /* 既存PLL構成に触れない */
+    s_status.rcc_osc_rc = (uint8_t)HAL_RCC_OscConfig(&osc);
 
     RCC_PeriphCLKInitTypeDef pclk_adc = {0};
     pclk_adc.PeriphClockSelection = RCC_PERIPHCLK_ADCDAC;
-    pclk_adc.AdcDacClockSelection = RCC_ADCDACCLKSOURCE_HSI;
-    HAL_RCCEx_PeriphCLKConfig(&pclk_adc);
+    pclk_adc.AdcDacClockSelection = RCC_ADCDACCLKSOURCE_MSIK;
+    s_status.rcc_periph_rc = (uint8_t)HAL_RCCEx_PeriphCLKConfig(&pclk_adc);
+
+    s_status.rcc_cr     = RCC->CR;      /* MSIKON/MSIKRDY確認 */
+    s_status.rcc_ccipr3 = RCC->CCIPR3;  /* ADCDACSEL確認 */
 
     __HAL_RCC_ADC1_CLK_ENABLE();
 
     s_hadc1.Instance                   = ADC1;
-    /* HSI=16MHz を非同期源とし、分周なし(DIV1)で16MHz。ADC1仕様内。 */
-    s_hadc1.Init.ClockPrescaler        = ADC_CLOCK_ASYNC_DIV1;
+    /* MSIK=48MHz を非同期源、DIV2=24MHzでADC1仕様内に収める。 */
+    s_hadc1.Init.ClockPrescaler        = ADC_CLOCK_ASYNC_DIV2;
     s_hadc1.Init.Resolution            = ADC_RESOLUTION_12B;
     s_hadc1.Init.ScanConvMode          = ADC_SCAN_DISABLE;
     s_hadc1.Init.EOCSelection          = ADC_EOC_SINGLE_CONV;
