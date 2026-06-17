@@ -23,7 +23,7 @@
 */
 
 #include "triac_control.h"
-#include "stm32u5xx_hal.h"
+#include "driver.h" /* grblと同じHAL+legacy+ボード定義の取り込み順序 (ADC_CLOCK_SYNC_PCLK_DIV4等) */
 #include <string.h>
 
 /* ── 内部状態 ────────────────────────────────────────────── */
