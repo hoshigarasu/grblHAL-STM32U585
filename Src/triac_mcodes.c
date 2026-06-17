@@ -137,6 +137,12 @@ static void triac_mcode_execute(sys_state_t state, parser_block_t *gc_block)
                      (unsigned long)st.rcc_cr,
                      (unsigned long)st.rcc_ccipr3);
             report_message(buf, Message_Info);
+            snprintf(buf, sizeof(buf),
+                     "TRIAC_RD start_rc=%u cr=0x%08lX isr=0x%08lX",
+                     (unsigned)st.adc_rd_start_rc,
+                     (unsigned long)st.adc_rd_cr,
+                     (unsigned long)st.adc_rd_isr);
+            report_message(buf, Message_Info);
             break;
         }
         default:

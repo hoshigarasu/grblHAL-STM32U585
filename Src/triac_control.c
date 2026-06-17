@@ -163,15 +163,21 @@ static bool adc_init(void)
     HAL_StatusTypeDef st_cal = HAL_ADCEx_Calibration_Start(&s_hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
     s_status.adc_cr_postcal = ADC1->CR; /* キャリブ呼び出し直後のcr */
     if (st_cal != HAL_OK) {
+        /* キャリブレーションは精度補正であり変換の必須条件ではない。
+         * 失敗しても致命扱いせず記録のみ行い、変換パスへ進む(非致命化)。
+         * 通常変換(HAL_ADC_Start)はキャリブより前提が緩く、動く可能性がある。 */
         s_status.adc_error_code = HAL_ADC_GetError(&s_hadc1);
-        s_status.adc_fail_step  = 2; /* Calibration で失敗 */
+        s_status.adc_fail_step  = 2; /* Calibration で失敗(非致命) */
         s_status.adc_isr = ADC1->ISR;
-        return false;
+        return true; /* ← 変更: false から true へ。変換を試させる */
     }
 
     s_status.adc_fail_step = 0;
     return true;
 }
+
+/* 変換直後のADRDY/ISRを1回だけ撮る診断フラグ */
+static bool s_adc_read_snapped = false;
 
 static uint16_t adc_read(uint32_t channel, bool *ok)
 {
@@ -183,7 +189,13 @@ static uint16_t adc_read(uint32_t channel, bool *ok)
     cfg.OffsetNumber = ADC_OFFSET_NONE;
     cfg.Offset       = 0;
     HAL_ADC_ConfigChannel(&s_hadc1, &cfg);
-    HAL_ADC_Start(&s_hadc1);
+    HAL_StatusTypeDef st_start = HAL_ADC_Start(&s_hadc1);
+    if (!s_adc_read_snapped) {            /* 初回のみ変換パスの状態を記録 */
+        s_status.adc_rd_start_rc = (uint8_t)st_start;
+        s_status.adc_rd_cr  = ADC1->CR;   /* ADEN/ADSTART */
+        s_status.adc_rd_isr = ADC1->ISR;  /* ADRDY立つか */
+        s_adc_read_snapped = true;
+    }
     if (HAL_ADC_PollForConversion(&s_hadc1, 10) != HAL_OK) {
         *ok = false;
         return 0;

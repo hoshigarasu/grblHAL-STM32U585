@@ -102,6 +102,9 @@ typedef struct {
     uint8_t  rcc_periph_rc;  /* HAL_RCCEx_PeriphCLKConfig 戻り値 (0=OK) (診断用、暫定) */
     uint32_t rcc_cr;         /* RCC->CR (MSIKON/MSIKRDY) (診断用、暫定) */
     uint32_t rcc_ccipr3;     /* RCC->CCIPR3 (ADCDACSEL) (診断用、暫定) */
+    uint32_t adc_rd_cr;      /* adc_read初回: HAL_ADC_Start直後のADC1->CR (診断用、暫定) */
+    uint32_t adc_rd_isr;     /* adc_read初回: HAL_ADC_Start直後のADC1->ISR (診断用、暫定) */
+    uint8_t  adc_rd_start_rc;/* adc_read初回: HAL_ADC_Start戻り値 (診断用、暫定) */
 } triac_status_t;
 
 /* ── 公開API ─────────────────────────────────────────────── */
