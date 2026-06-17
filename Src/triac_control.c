@@ -227,6 +227,29 @@ static bool dimmerlink_set_level(uint8_t level)
     return (ret == HAL_OK);
 }
 
+/* ── 診断: 内部基準VREFINTを1回変換(外部ピン非依存) ──────── */
+/* PA0/PA1が変換完走しない(EOC立たず)原因が、入力ピン経路か
+ * ADCコア自体かを切り分ける。VREFINTは内部接続でアナログスイッチ不要。 */
+static void adc_probe_vrefint(void)
+{
+    ADC_ChannelConfTypeDef cfg = {0};
+    cfg.Channel      = ADC_CHANNEL_VREFINT;
+    cfg.Rank         = ADC_REGULAR_RANK_1;
+    cfg.SamplingTime = ADC_SAMPLETIME_391CYCLES;
+    cfg.SingleDiff   = ADC_SINGLE_ENDED;
+    cfg.OffsetNumber = ADC_OFFSET_NONE;
+    cfg.Offset       = 0;
+    s_status.adc_vref_cfg_rc = (uint8_t)HAL_ADC_ConfigChannel(&s_hadc1, &cfg);
+    HAL_ADC_Start(&s_hadc1);
+    HAL_StatusTypeDef p = HAL_ADC_PollForConversion(&s_hadc1, 50);
+    s_status.adc_vref_isr = ADC1->ISR;
+    if (p == HAL_OK) {
+        s_status.adc_vref_ok  = 1;
+        s_status.adc_vref_val = (uint16_t)HAL_ADC_GetValue(&s_hadc1);
+    }
+    HAL_ADC_Stop(&s_hadc1);
+}
+
 /* ── 初期化 ──────────────────────────────────────────────── */
 void triac_init(void)
 {
@@ -238,6 +261,7 @@ void triac_init(void)
     s_status.i2c_init_error = !i2c_ok;
     s_status.adc_init_error = !adc_ok;
     s_status.init_error     = !(i2c_ok && adc_ok);
+    adc_probe_vrefint(); /* 診断: ADCコア自体が変換できるか */
     dimmerlink_set_level(0);
     s_enabled = false;
     s_voltage  = TRIAC_VOLTAGE_OFF;

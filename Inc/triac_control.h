@@ -105,6 +105,10 @@ typedef struct {
     uint32_t adc_rd_cr;      /* adc_read初回: HAL_ADC_Start直後のADC1->CR (診断用、暫定) */
     uint32_t adc_rd_isr;     /* adc_read初回: HAL_ADC_Start直後のADC1->ISR (診断用、暫定) */
     uint8_t  adc_rd_start_rc;/* adc_read初回: HAL_ADC_Start戻り値 (診断用、暫定) */
+    uint8_t  adc_vref_ok;    /* VREFINT変換成功 (診断用、暫定) */
+    uint8_t  adc_vref_cfg_rc;/* VREFINT ConfigChannel戻り値 (診断用、暫定) */
+    uint16_t adc_vref_val;   /* VREFINT変換値 (診断用、暫定) */
+    uint32_t adc_vref_isr;   /* VREFINT変換後のISR (診断用、暫定) */
 } triac_status_t;
 
 /* ── 公開API ─────────────────────────────────────────────── */

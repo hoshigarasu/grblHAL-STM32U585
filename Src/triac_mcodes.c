@@ -143,6 +143,13 @@ static void triac_mcode_execute(sys_state_t state, parser_block_t *gc_block)
                      (unsigned long)st.adc_rd_cr,
                      (unsigned long)st.adc_rd_isr);
             report_message(buf, Message_Info);
+            snprintf(buf, sizeof(buf),
+                     "TRIAC_VREF ok=%u cfg_rc=%u val=%u isr=0x%08lX",
+                     (unsigned)st.adc_vref_ok,
+                     (unsigned)st.adc_vref_cfg_rc,
+                     (unsigned)st.adc_vref_val,
+                     (unsigned long)st.adc_vref_isr);
+            report_message(buf, Message_Info);
             break;
         }
         default:
