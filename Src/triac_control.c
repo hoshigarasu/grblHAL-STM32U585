@@ -99,18 +99,29 @@ static void gpio_init(void)
  */
 static bool adc_init(void)
 {
+    /* STM32U5のADCは非同期クロックモードのみ (ADC_CLOCK_SYNC_* は存在しない)。
+     * 非同期ドメイン(CKMODE=00)はADCDACカーネルclock muxから給電される。
+     * 以前HCLKを選んだがHCLKは非同期ドメインに供給されずADRDYが立たず失敗した
+     * (実測 isr=0)。確実に供給でき、かつ自分で確実にONにできるHSI(16MHz内蔵RC)を
+     * 源に選ぶ。grblはMSIシステムクロックのみ構成しMSIKの明示有効化が無いため、
+     * MSIK依存は避けHSIを明示的に起こす。 */
+    RCC_OscInitTypeDef osc = {0};
+    osc.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+    osc.HSIState       = RCC_HSI_ON;
+    osc.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+    osc.PLL.PLLState   = RCC_PLL_NONE; /* 既存PLL構成に触れない */
+    HAL_RCC_OscConfig(&osc);
+
+    RCC_PeriphCLKInitTypeDef pclk_adc = {0};
+    pclk_adc.PeriphClockSelection = RCC_PERIPHCLK_ADCDAC;
+    pclk_adc.AdcDacClockSelection = RCC_ADCDACCLKSOURCE_HSI;
+    HAL_RCCEx_PeriphCLKConfig(&pclk_adc);
+
     __HAL_RCC_ADC1_CLK_ENABLE();
 
     s_hadc1.Instance                   = ADC1;
-    /* クロックモード: 同期 (CKMODE != 0, PCLKから分周)。
-     * 非同期モード (ADC_CLOCK_ASYNC_*, CKMODE=00) はADCDACカーネルclock muxから
-     * クロックを得るが、その源にHCLKを選んでも非同期ドメインにクロックが供給されず
-     * ADRDYが立たずキャリブレーションがHAL_ADC_ERROR_INTERNAL(0x01)で失敗する
-     * (実測: postcal cr=ADEN|ADVREGEN, isr=0=ADRDY立たず, ccr CKMODE=00)。
-     * grbl本体(ioports_analog.c)も ADC_CLOCK_SYNC_PCLK_DIV4 を使用しており、
-     * 共有ADC1のクロックモードを一致させることでモード競合も解消する。
-     * PCLK≈160MHz / DIV4 = 40MHz でADC1動作クロック仕様内。 */
-    s_hadc1.Init.ClockPrescaler        = ADC_CLOCK_SYNC_PCLK_DIV4;
+    /* HSI=16MHz を非同期源とし、分周なし(DIV1)で16MHz。ADC1仕様内。 */
+    s_hadc1.Init.ClockPrescaler        = ADC_CLOCK_ASYNC_DIV1;
     s_hadc1.Init.Resolution            = ADC_RESOLUTION_12B;
     s_hadc1.Init.ScanConvMode          = ADC_SCAN_DISABLE;
     s_hadc1.Init.EOCSelection          = ADC_EOC_SINGLE_CONV;
