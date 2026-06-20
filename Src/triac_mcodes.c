@@ -24,6 +24,7 @@
 
 /* ── センサー定期更新 ────────────────────────────────────── */
 static uint32_t s_last_sensor_tick = 0;
+static bool s_prev_overheat = false;
 #define SENSOR_UPDATE_MS 1000U
 
 static on_execute_realtime_ptr s_prev_realtime = NULL;
@@ -36,9 +37,11 @@ static void triac_realtime_handler(sys_state_t state)
     if (now - s_last_sensor_tick >= SENSOR_UPDATE_MS) {
         s_last_sensor_tick = now;
         triac_status_t st = triac_update_sensors();
-        if (st.overheat) {
+        if (st.overheat && !s_prev_overheat)
             report_message("TRIAC OVERHEAT - output disabled", Message_Warning);
-        }
+        else if (!st.overheat && s_prev_overheat)
+            report_message("TRIAC temperature recovered", Message_Info);
+        s_prev_overheat = st.overheat;
     }
 }
 
