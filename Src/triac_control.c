@@ -62,7 +62,6 @@ static bool i2c_init(void)
     s_hi2c2.Init.GeneralCallMode  = I2C_GENERALCALL_DISABLED;
     s_hi2c2.Init.NoStretchMode    = I2C_NOSTRETCH_DISABLED;
     if (HAL_I2C_Init(&s_hi2c2) != HAL_OK) {
-        s_status.i2c_error_code = HAL_I2C_GetError(&s_hi2c2);
         return false;
     }
     return true;
@@ -99,32 +98,25 @@ static void gpio_init(void)
  */
 static bool adc_init(void)
 {
-    /* STM32U5のADCは非同期クロックモードのみ (ADC_CLOCK_SYNC_* は存在しない)。
-     * 非同期ドメイン(CKMODE=00)はADCDACカーネルclock muxから給電される。
-     * HCLKは非同期ドメインに供給されず失敗(実測isr=0)。HSIはシステムがMSI/PLL
-     * 構成のため HAL_RCC_OscConfig がHSI単独ONを弾いた可能性(戻り値未確認だった)。
-     * 本機はMSIをRANGE_0(48MHz)で常用しているため、MSI由来のカーネルクロックMSIKを
-     * 有効化し非同期源に使う。PLLには触れない(RCC_PLL_NONE)。 */
+    /* STM32U5のADCは非同期クロックモードのみ。非同期ドメイン(CKMODE=00)は
+     * ADCDACカーネルclock muxから給電される。HCLKは非同期ドメインに供給されない
+     * ため、MSI由来のMSIK(本機はMSIをRANGE_0=48MHzで常用)を有効化し源にする。 */
     RCC_OscInitTypeDef osc = {0};
     osc.OscillatorType = RCC_OSCILLATORTYPE_MSIK;
     osc.MSIKState      = RCC_MSIK_ON;
-    osc.MSIKClockRange = RCC_MSIKRANGE_0; /* 48MHz, システムMSIと同レンジ */
+    osc.MSIKClockRange = RCC_MSIKRANGE_0; /* 48MHz */
     osc.PLL.PLLState   = RCC_PLL_NONE;    /* 既存PLL構成に触れない */
-    s_status.rcc_osc_rc = (uint8_t)HAL_RCC_OscConfig(&osc);
+    if (HAL_RCC_OscConfig(&osc) != HAL_OK) return false;
 
     RCC_PeriphCLKInitTypeDef pclk_adc = {0};
     pclk_adc.PeriphClockSelection = RCC_PERIPHCLK_ADCDAC;
     pclk_adc.AdcDacClockSelection = RCC_ADCDACCLKSOURCE_MSIK;
-    s_status.rcc_periph_rc = (uint8_t)HAL_RCCEx_PeriphCLKConfig(&pclk_adc);
-
-    s_status.rcc_cr     = RCC->CR;      /* MSIKON/MSIKRDY確認 */
-    s_status.rcc_ccipr3 = RCC->CCIPR3;  /* ADCDACSEL確認 */
+    if (HAL_RCCEx_PeriphCLKConfig(&pclk_adc) != HAL_OK) return false;
 
     __HAL_RCC_ADC1_CLK_ENABLE();
 
     s_hadc1.Instance                   = ADC1;
-    /* MSIK=48MHz を非同期源、DIV2=24MHzでADC1仕様内に収める。 */
-    s_hadc1.Init.ClockPrescaler        = ADC_CLOCK_ASYNC_DIV2;
+    s_hadc1.Init.ClockPrescaler        = ADC_CLOCK_ASYNC_DIV2; /* MSIK48MHz/2=24MHz, 仕様内 */
     s_hadc1.Init.Resolution            = ADC_RESOLUTION_12B;
     s_hadc1.Init.ScanConvMode          = ADC_SCAN_DISABLE;
     s_hadc1.Init.EOCSelection          = ADC_EOC_SINGLE_CONV;
@@ -137,47 +129,17 @@ static bool adc_init(void)
     s_hadc1.Init.DMAContinuousRequests = DISABLE;
     s_hadc1.Init.Overrun               = ADC_OVR_DATA_OVERWRITTEN;
     s_hadc1.Init.OversamplingMode      = DISABLE;
+    if (HAL_ADC_Init(&s_hadc1) != HAL_OK) return false;
 
-    HAL_StatusTypeDef st_init = HAL_ADC_Init(&s_hadc1);
-    /* 成否に関わらずレジスタを撮る (HAL_ADC_Init直後の生状態) */
-    s_status.adc_cr  = ADC1->CR;
-    s_status.adc_isr = ADC1->ISR;
-    s_status.adc_ccr = __LL_ADC_COMMON_INSTANCE(ADC1)->CCR;
-    if (st_init != HAL_OK) {
-        s_status.adc_error_code = HAL_ADC_GetError(&s_hadc1);
-        s_status.adc_fail_step  = 1; /* HAL_ADC_Init で失敗 */
-        return false;
-    }
-
-    /* キャリブレーションは ADEN=0 が前提。通常この時点でADEN=0だが、
-     * 何らかの経路で有効化されていた場合に備え、念のため無効化する(防御的)。 */
-    if (LL_ADC_IsEnabled(ADC1) != 0UL) {
-        LL_ADC_Disable(ADC1);
-        uint32_t t0 = HAL_GetTick();
-        while (LL_ADC_IsEnabled(ADC1) != 0UL && (HAL_GetTick() - t0) < 10U) {
-            /* ADEN自動クリア待ち (最大10ms) */
-        }
-    }
-    s_status.adc_cr_postdis = ADC1->CR; /* disable直後のcr (ADEN落ちたか) */
-
-    HAL_StatusTypeDef st_cal = HAL_ADCEx_Calibration_Start(&s_hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
-    s_status.adc_cr_postcal = ADC1->CR; /* キャリブ呼び出し直後のcr */
-    if (st_cal != HAL_OK) {
-        /* キャリブレーションは精度補正であり変換の必須条件ではない。
-         * 失敗しても致命扱いせず記録のみ行い、変換パスへ進む(非致命化)。
-         * 通常変換(HAL_ADC_Start)はキャリブより前提が緩く、動く可能性がある。 */
-        s_status.adc_error_code = HAL_ADC_GetError(&s_hadc1);
-        s_status.adc_fail_step  = 2; /* Calibration で失敗(非致命) */
-        s_status.adc_isr = ADC1->ISR;
-        return true; /* ← 変更: false から true へ。変換を試させる */
-    }
-
-    s_status.adc_fail_step = 0;
+    /* キャリブレーションは意図的に行わない。
+     * STM32U585(dev_id=0x482, rev>=0x3000)はHALの「拡張キャリブレーション」経路に入り、
+     * 内部でADC_Enable→CALINDEX/CALFACT2操作→ADCAL待ちという低レベル手順を踏むが、
+     * 本構成では完走せずHAL_ADC_ERROR_INTERNALになる。
+     * キャリブレーションはオフセット精密補正(数LSB)であり、TEMP/CURのしきい値判定
+     * (実機で電圧計校正する前提, triac_control.h参照)には影響しないため不要。
+     * 変換自体(HAL_ADC_Start/Poll)はキャリブレーション無しで正常動作する。 */
     return true;
 }
-
-/* 変換直後のADRDY/ISRを1回だけ撮る診断フラグ */
-static bool s_adc_read_snapped = false;
 
 static uint16_t adc_read(uint32_t channel, bool *ok)
 {
@@ -189,23 +151,19 @@ static uint16_t adc_read(uint32_t channel, bool *ok)
     cfg.OffsetNumber = ADC_OFFSET_NONE;
     cfg.Offset       = 0;
     HAL_ADC_ConfigChannel(&s_hadc1, &cfg);
-    HAL_StatusTypeDef st_start = HAL_ADC_Start(&s_hadc1);
-    if (!s_adc_read_snapped) {            /* 初回のみ変換パスの状態を記録 */
-        s_status.adc_rd_start_rc = (uint8_t)st_start;
-        s_status.adc_rd_cr  = ADC1->CR;   /* ADEN/ADSTART */
-        s_status.adc_rd_isr = ADC1->ISR;  /* ADRDY立つか */
-        s_adc_read_snapped = true;
+    if (HAL_ADC_Start(&s_hadc1) != HAL_OK) {
+        *ok = false;
+        return 0;
     }
     if (HAL_ADC_PollForConversion(&s_hadc1, 10) != HAL_OK) {
         *ok = false;
         return 0;
     }
     uint16_t v = (uint16_t)HAL_ADC_GetValue(&s_hadc1);
-    /* HAL_ADC_Stopを呼ばない: ADENを1のまま維持する。
-     * STM32U5のADC_Enableは「ADEN=1なら前提チェックを素通りしてHAL_OK」だが、
-     * Stopで中途半端にdisableするとADEN=1残留状態で次のADC_Enable前提チェック
-     * (ADEN!=0で即HAL_ERROR/INTERNAL)に引っかかる。enable維持で単発変換を繰り返す。
-     * (実測: VREFINT初回変換はenable直後で完走(EOC), PA0は2回目enableで弾かれていた) */
+    /* HAL_ADC_Stopを呼ばずADENを維持する。STM32U5のADC_Enableは「ADEN=1なら
+     * 前提チェックを素通り」するが、Stopで中途半端にdisableするとADEN残留状態で
+     * 次のADC_Enable前提チェック(ADEN!=0で即HAL_ERROR)に引っかかる。
+     * enable維持で単発変換を繰り返すことで2回目以降のenableを発生させない。 */
     *ok = true;
     return v;
 }
@@ -227,31 +185,7 @@ static bool dimmerlink_set_level(uint8_t level)
         TRIAC_I2C_TIMEOUT_MS
     );
     s_status.i2c_error = (ret != HAL_OK);
-    if (ret != HAL_OK) s_status.i2c_error_code = HAL_I2C_GetError(&s_hi2c2);
     return (ret == HAL_OK);
-}
-
-/* ── 診断: 内部基準VREFINTを1回変換(外部ピン非依存) ──────── */
-/* PA0/PA1が変換完走しない(EOC立たず)原因が、入力ピン経路か
- * ADCコア自体かを切り分ける。VREFINTは内部接続でアナログスイッチ不要。 */
-static void adc_probe_vrefint(void)
-{
-    ADC_ChannelConfTypeDef cfg = {0};
-    cfg.Channel      = ADC_CHANNEL_VREFINT;
-    cfg.Rank         = ADC_REGULAR_RANK_1;
-    cfg.SamplingTime = ADC_SAMPLETIME_391CYCLES;
-    cfg.SingleDiff   = ADC_SINGLE_ENDED;
-    cfg.OffsetNumber = ADC_OFFSET_NONE;
-    cfg.Offset       = 0;
-    s_status.adc_vref_cfg_rc = (uint8_t)HAL_ADC_ConfigChannel(&s_hadc1, &cfg);
-    HAL_ADC_Start(&s_hadc1);
-    HAL_StatusTypeDef p = HAL_ADC_PollForConversion(&s_hadc1, 50);
-    s_status.adc_vref_isr = ADC1->ISR;
-    if (p == HAL_OK) {
-        s_status.adc_vref_ok  = 1;
-        s_status.adc_vref_val = (uint16_t)HAL_ADC_GetValue(&s_hadc1);
-    }
-    /* HAL_ADC_Stopは呼ばない: ADENを維持し、以降のadc_readで2回目enableを回避。 */
 }
 
 /* ── 初期化 ──────────────────────────────────────────────── */
@@ -262,10 +196,7 @@ void triac_init(void)
     /* 初期化失敗は init_error に記録するが happy path の動作は変えない */
     bool i2c_ok = i2c_init();
     bool adc_ok = adc_init();
-    s_status.i2c_init_error = !i2c_ok;
-    s_status.adc_init_error = !adc_ok;
-    s_status.init_error     = !(i2c_ok && adc_ok);
-    adc_probe_vrefint(); /* 診断: ADCコア自体が変換できるか */
+    s_status.init_error = !(i2c_ok && adc_ok);
     dimmerlink_set_level(0);
     s_enabled = false;
     s_voltage  = TRIAC_VOLTAGE_OFF;

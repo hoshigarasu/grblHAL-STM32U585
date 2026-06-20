@@ -87,28 +87,7 @@ typedef struct {
     bool     fan_on;
     bool     overheat;
     bool     i2c_error;     /* DimmerLink通信エラー */
-    bool     init_error;    /* 初期化失敗 (i2c_init_error || adc_init_error) */
-    bool     i2c_init_error; /* HAL_I2C_Init失敗 (診断用、暫定) */
-    bool     adc_init_error; /* HAL_ADC_Init/Calibration失敗 (診断用、暫定) */
-    uint32_t i2c_error_code; /* HAL_I2C_GetError() (診断用、暫定) */
-    uint32_t adc_error_code; /* HAL_ADC_GetError() (診断用、暫定) */
-    uint32_t adc_cr;         /* ADC1->CR スナップショット (HAL_ADC_Init直後) */
-    uint32_t adc_cr_postdis; /* ADC1->CR (LL_ADC_Disable直後) */
-    uint32_t adc_cr_postcal; /* ADC1->CR (Calibration呼出直後) */
-    uint32_t adc_isr;        /* ADC1->ISR スナップショット (診断用、暫定) */
-    uint32_t adc_ccr;        /* ADC common CCR スナップショット (診断用、暫定) */
-    uint8_t  adc_fail_step;  /* 0=OK, 1=HAL_ADC_Init失敗, 2=Calibration失敗 (診断用、暫定) */
-    uint8_t  rcc_osc_rc;     /* HAL_RCC_OscConfig 戻り値 (0=OK) (診断用、暫定) */
-    uint8_t  rcc_periph_rc;  /* HAL_RCCEx_PeriphCLKConfig 戻り値 (0=OK) (診断用、暫定) */
-    uint32_t rcc_cr;         /* RCC->CR (MSIKON/MSIKRDY) (診断用、暫定) */
-    uint32_t rcc_ccipr3;     /* RCC->CCIPR3 (ADCDACSEL) (診断用、暫定) */
-    uint32_t adc_rd_cr;      /* adc_read初回: HAL_ADC_Start直後のADC1->CR (診断用、暫定) */
-    uint32_t adc_rd_isr;     /* adc_read初回: HAL_ADC_Start直後のADC1->ISR (診断用、暫定) */
-    uint8_t  adc_rd_start_rc;/* adc_read初回: HAL_ADC_Start戻り値 (診断用、暫定) */
-    uint8_t  adc_vref_ok;    /* VREFINT変換成功 (診断用、暫定) */
-    uint8_t  adc_vref_cfg_rc;/* VREFINT ConfigChannel戻り値 (診断用、暫定) */
-    uint16_t adc_vref_val;   /* VREFINT変換値 (診断用、暫定) */
-    uint32_t adc_vref_isr;   /* VREFINT変換後のISR (診断用、暫定) */
+    bool     init_error;    /* 初期化失敗 (HAL_I2C_Init / HAL_ADC_Init) */
 } triac_status_t;
 
 /* ── 公開API ─────────────────────────────────────────────── */
