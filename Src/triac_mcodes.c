@@ -1,8 +1,9 @@
 /**
  * triac_mcodes.c
- * grblHAL Mコード統合 — TRIACフェーズ角電圧制御
+ * grblHAL Mコード統合 — TRIAC出力レベル制御 (DimmerLink)
  *
- * M810 OFF / M811 20V / M812 30V / M813 40V
+ * M810           OFF (level=0)
+ * M811 P<0-100>  出力レベル設定 (P省略時は安全既定値 level=10)
  * M814 ENABLE / M815 DISABLE / M816 STATUS
  */
 
@@ -16,9 +17,7 @@
 
 /* ── Mコード番号 ─────────────────────────────────────────── */
 #define MCODE_TRIAC_OFF     810
-#define MCODE_TRIAC_20V     811
-#define MCODE_TRIAC_30V     812
-#define MCODE_TRIAC_40V     813
+#define MCODE_TRIAC_LEVEL   811   /* M811 P<0-100> : 出力レベル設定 (P省略時は安全既定値) */
 #define MCODE_TRIAC_ENABLE  814
 #define MCODE_TRIAC_DISABLE 815
 #define MCODE_TRIAC_STATUS  816
@@ -48,9 +47,7 @@ static user_mcode_type_t triac_mcode_check(user_mcode_t mcode)
 {
     switch ((uint16_t)mcode) {
         case MCODE_TRIAC_OFF:
-        case MCODE_TRIAC_20V:
-        case MCODE_TRIAC_30V:
-        case MCODE_TRIAC_40V:
+        case MCODE_TRIAC_LEVEL:
         case MCODE_TRIAC_ENABLE:
         case MCODE_TRIAC_DISABLE:
         case MCODE_TRIAC_STATUS:
@@ -63,10 +60,19 @@ static user_mcode_type_t triac_mcode_check(user_mcode_t mcode)
 static status_code_t triac_mcode_validate(parser_block_t *gc_block)
 {
     switch ((uint16_t)gc_block->user_mcode) {
+        case MCODE_TRIAC_LEVEL:
+            /* M811 P<0-100>: Pワードは任意。
+             * 指定時は範囲検証してwordを消費。省略時はvalues.pに安全既定値を入れて
+             * 正規化する(非syncなのでvalidate→executeは同一gc_blockで連続実行)。 */
+            if (gc_block->words.p) {
+                if (gc_block->values.p < 0.0f || gc_block->values.p > (float)TRIAC_LEVEL_MAX)
+                    return Status_GcodeValueOutOfRange;
+                gc_block->words.p = Off; /* 消費 */
+            } else {
+                gc_block->values.p = (float)TRIAC_LEVEL_SAFE_DFLT;
+            }
+            return Status_OK;
         case MCODE_TRIAC_OFF:
-        case MCODE_TRIAC_20V:
-        case MCODE_TRIAC_30V:
-        case MCODE_TRIAC_40V:
         case MCODE_TRIAC_ENABLE:
         case MCODE_TRIAC_DISABLE:
         case MCODE_TRIAC_STATUS:
@@ -83,21 +89,17 @@ static void triac_mcode_execute(sys_state_t state, parser_block_t *gc_block)
 
     switch ((uint16_t)gc_block->user_mcode) {
         case MCODE_TRIAC_OFF:
-            triac_set_voltage(TRIAC_VOLTAGE_OFF);
+            triac_set_level(0);
             report_message("TRIAC OFF", Message_Info);
             break;
-        case MCODE_TRIAC_20V:
-            triac_set_voltage(TRIAC_VOLTAGE_20V);
-            report_message("TRIAC 20V", Message_Info);
+        case MCODE_TRIAC_LEVEL: {
+            /* validateで正規化済み: values.p は 0-100 (P省略時は安全既定値) */
+            uint8_t level = (uint8_t)gc_block->values.p;
+            triac_set_level(level);
+            snprintf(buf, sizeof(buf), "TRIAC LEVEL=%u", (unsigned)level);
+            report_message(buf, Message_Info);
             break;
-        case MCODE_TRIAC_30V:
-            triac_set_voltage(TRIAC_VOLTAGE_30V);
-            report_message("TRIAC 30V", Message_Info);
-            break;
-        case MCODE_TRIAC_40V:
-            triac_set_voltage(TRIAC_VOLTAGE_40V);
-            report_message("TRIAC 40V", Message_Info);
-            break;
+        }
         case MCODE_TRIAC_ENABLE:
             triac_enable();
             report_message("TRIAC ENABLED", Message_Info);

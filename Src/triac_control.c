@@ -30,7 +30,7 @@
 static I2C_HandleTypeDef s_hi2c2;
 static ADC_HandleTypeDef s_hadc1;
 
-static volatile triac_voltage_t s_voltage = TRIAC_VOLTAGE_OFF;
+static volatile uint8_t         s_level   = 0; /* 現在の出力レベル 0-100 */
 static volatile bool            s_enabled = false;
 static triac_status_t           s_status  = {0};
 
@@ -199,32 +199,25 @@ void triac_init(void)
     s_status.init_error = !(i2c_ok && adc_ok);
     dimmerlink_set_level(0);
     s_enabled = false;
-    s_voltage  = TRIAC_VOLTAGE_OFF;
+    s_level    = 0;
 }
 
-/* ── 電圧設定 ────────────────────────────────────────────── */
-void triac_set_voltage(triac_voltage_t v)
+/* ── 出力レベル設定 (0-100) ──────────────────────────────── */
+void triac_set_level(uint8_t level)
 {
-    s_voltage = v;
+    if (level > TRIAC_LEVEL_MAX) level = TRIAC_LEVEL_MAX; /* クランプ */
+    s_level = level;
     if (!s_enabled) return;
-
-    uint8_t level;
-    switch (v) {
-        case TRIAC_VOLTAGE_20V: level = TRIAC_LEVEL_20V; break;
-        case TRIAC_VOLTAGE_30V: level = TRIAC_LEVEL_30V; break;
-        case TRIAC_VOLTAGE_40V: level = TRIAC_LEVEL_40V; break;
-        default:                level = 0;               break;
-    }
     dimmerlink_set_level(level);
 }
 
-triac_voltage_t triac_get_voltage(void) { return s_voltage; }
+uint8_t triac_get_level(void) { return s_level; }
 
 /* ── 有効/無効 ───────────────────────────────────────────── */
 void triac_enable(void)
 {
     s_enabled = true;
-    triac_set_voltage(s_voltage);
+    triac_set_level(s_level);
 }
 
 void triac_disable(void)

@@ -58,12 +58,13 @@
 #define DIMMERLINK_CMD_SET_LEVEL  0x01U
 #define DIMMERLINK_CHANNEL        0x01U       /* 1ch構成 */
 
-/* ── 電圧→DimmerLevelマッピング (要実機校正) ────────────── */
-/* DimmerLinkはRMSカーブで変換するため、level値は近似         */
-/* 実機で電圧計を当てて確認し定数を調整すること               */
-#define TRIAC_LEVEL_20V         20U
-#define TRIAC_LEVEL_30V         30U
-#define TRIAC_LEVEL_40V         40U
+/* ── DimmerLink出力レベル (0-100) ─────────────────────────── */
+/* levelはDimmerLinkの位相角/RMSカーブのパーセンテージで、実電圧(V)とは
+ * 非線形対応。実電圧指定は将来 level↔V 変換テーブルを triac_set_level の
+ * 呼び出し側に持たせて実現する(本ファイルはlevelを素通し)。 */
+#define TRIAC_LEVEL_MIN         0U
+#define TRIAC_LEVEL_MAX         100U
+#define TRIAC_LEVEL_SAFE_DFLT   10U   /* M811をPワード無しで打った時の安全既定値 */
 
 /* ── 温度・電流ADC閾値 ───────────────────────────────────── */
 /* ADC 12bit (0-4095), Vref=3.3V → V = val*3.3/4095          */
@@ -71,14 +72,6 @@
 #define TRIAC_TEMP_FAN_ON_ADC   1240U   /* ファンON閾値  */
 #define TRIAC_TEMP_FAN_OFF_ADC  1000U   /* ファンOFF閾値 (ヒステリシス) */
 #define TRIAC_TEMP_OVERHEAT_ADC 2480U   /* 過熱保護閾値  */
-
-/* ── 電圧ステップ定義 ────────────────────────────────────── */
-typedef enum {
-    TRIAC_VOLTAGE_OFF = 0,
-    TRIAC_VOLTAGE_20V = 20,
-    TRIAC_VOLTAGE_30V = 30,
-    TRIAC_VOLTAGE_40V = 40,
-} triac_voltage_t;
 
 /* ── ステータス ──────────────────────────────────────────── */
 typedef struct {
@@ -95,11 +88,12 @@ typedef struct {
 /** 初期化 — driver_setup()完了後に呼ぶ */
 void triac_init(void);
 
-/** 電圧ステップ設定 */
-void triac_set_voltage(triac_voltage_t v);
+/** 出力レベル設定 (0-100)。範囲外はクランプ。
+ *  enableされている時のみ実際にDimmerLinkへ送信する。 */
+void triac_set_level(uint8_t level);
 
-/** 現在の電圧ステップ取得 */
-triac_voltage_t triac_get_voltage(void);
+/** 現在の出力レベル取得 (0-100) */
+uint8_t triac_get_level(void);
 
 /** TRIAC出力停止 (level=0送信 + I2C無効化) */
 void triac_disable(void);
