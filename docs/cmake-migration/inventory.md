@@ -224,7 +224,8 @@ Release構成は実用不可（CubeIDE上での設定が未完了）。
 | CubeIDE内蔵ツールチェーン名 | **GNU Tools for STM32 14.3.rel1** | 各 `subdir.mk` ヘッダコメント |
 | ツールチェーンプレフィックス | `arm-none-eabi-` | .cproject defaults |
 | ツールチェーンパス変数 | `${gnu_tools_for_stm32_compiler_path}` | .cproject defaults（CubeIDE内部変数） |
-| ホスト上での gcc-arm-none-eabi | **未インストール**（`apt install gcc-arm-none-eabi` が必要） | タスク1実施前の確認 |
+| ホスト上での gcc-arm-none-eabi | **13.2.1 20231009** (パッケージ: 15:13.2.rel1-2) | `arm-none-eabi-gcc --version` |
+| ホスト上での arm-none-eabi-size | **2.42** (binutils 2.42-1ubuntu1+23) | `arm-none-eabi-size --version` |
 
 > CMake移行で使用するホスト側ツールチェーンは `apt install gcc-arm-none-eabi` で入る
 > Ubuntu公式パッケージ版。CubeIDE内蔵の 14.3.rel1 とはバージョンが異なる可能性がある。
