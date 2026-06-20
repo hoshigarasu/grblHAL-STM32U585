@@ -6,3 +6,6 @@ Release/
 *.bin
 *.map
 *.lst
+
+# CMake build output
+build-cmake/
