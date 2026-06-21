@@ -22,6 +22,7 @@
 #define MCODE_TRIAC_ENABLE  814
 #define MCODE_TRIAC_DISABLE 815
 #define MCODE_TRIAC_STATUS  816
+#define MCODE_TRIAC_ADCDIAG 817   /* ADC診断: TEMPチャンネル単発読み+レジスタダンプ (一時的) */
 
 /* ── センサー定期更新 ────────────────────────────────────── */
 static uint32_t s_last_sensor_tick = 0;
@@ -55,6 +56,7 @@ static user_mcode_type_t triac_mcode_check(user_mcode_t mcode)
         case MCODE_TRIAC_ENABLE:
         case MCODE_TRIAC_DISABLE:
         case MCODE_TRIAC_STATUS:
+        case MCODE_TRIAC_ADCDIAG:
             return UserMCode_Normal;
         default:
             return UserMCode_Unsupported;
@@ -80,6 +82,7 @@ static status_code_t triac_mcode_validate(parser_block_t *gc_block)
         case MCODE_TRIAC_ENABLE:
         case MCODE_TRIAC_DISABLE:
         case MCODE_TRIAC_STATUS:
+        case MCODE_TRIAC_ADCDIAG:
             return Status_OK;
         default:
             return Status_Unhandled;
@@ -124,6 +127,9 @@ static void triac_mcode_execute(sys_state_t state, parser_block_t *gc_block)
             report_message(buf, Message_Info);
             break;
         }
+        case MCODE_TRIAC_ADCDIAG:
+            triac_adc_diag();
+            break;
         default:
             break;
     }

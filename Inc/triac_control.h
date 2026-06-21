@@ -101,4 +101,7 @@ triac_status_t triac_update_sensors(void);
 /** 現在のステータス取得 (ADC読み取りなし) */
 triac_status_t triac_get_status(void);
 
+/** ADC診断: TEMPチャンネルを1回読み、HAL戻り値とADC1レジスタをreport_messageで出力 (M817用) */
+void triac_adc_diag(void);
+
 #endif /* TRIAC_CONTROL_H */
