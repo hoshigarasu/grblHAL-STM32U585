@@ -49,8 +49,8 @@ static void compute_delay_table(void)
 {
     static const float PI = 3.14159265f;
 
-    s_delay_us[0]   = 0xFFFFU;  /* level 0: 発火しない (sentinel) */
-    s_delay_us[100] = 1U;       /* level 100: 最小遅延(≈最大出力) */
+    s_delay_us[0]   = 0xFFFFU;                 /* level 0: 発火しない (sentinel) */
+    s_delay_us[100] = TRIAC_MIN_FIRE_DELAY_US; /* level 100: ラッチ保証下限遅延 */
 
     for (int L = 1; L <= 99; L++) {
         float target = (float)L / 100.0f;
@@ -63,7 +63,7 @@ static void compute_delay_table(void)
         }
         float alpha = (lo + hi) * 0.5f;
         uint32_t d  = (uint32_t)(alpha / PI * (float)TRIAC_HALF_PERIOD_US + 0.5f);
-        if (d < 1U)                          d = 1U;
+        if (d < TRIAC_MIN_FIRE_DELAY_US)    d = TRIAC_MIN_FIRE_DELAY_US;
         if (d > TRIAC_HALF_PERIOD_US - 1U)  d = TRIAC_HALF_PERIOD_US - 1U;
         s_delay_us[L] = (uint16_t)d;
     }
