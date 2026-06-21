@@ -291,6 +291,7 @@ void triac_disable(void)
     TIM6->SR   = 0;
     s_dim_phase = false;
     TRIAC_DIM_PORT->BRR = TRIAC_DIM_PIN_Msk;  /* DIM = LOW (安全) */
+    s_level = 0;                          /* 再enable時の意図しない電圧復帰を防ぐ */
 }
 
 /* ── センサー更新 + ファン制御 ───────────────────────────── */
