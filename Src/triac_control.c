@@ -129,9 +129,13 @@ static void gpio_init(void)
     HAL_GPIO_Init(TRIAC_FAN_PORT, &g);
     HAL_GPIO_WritePin(TRIAC_FAN_PORT, TRIAC_FAN_PIN_Msk, GPIO_PIN_RESET);
 
-    /* PA0, PA1: アナログ入力 */
-    g.Pin  = GPIO_PIN_0 | GPIO_PIN_1;
+    /* PA0 (TEMP): NTC-to-GND回路のため内部プルアップ必要 (STM32U5はANALOGモードでもPUPDR有効) */
+    g.Pin  = GPIO_PIN_0;
     g.Mode = GPIO_MODE_ANALOG;
+    g.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(GPIOA, &g);
+    /* PA1 (CUR-S): 未配線のためNOPULL */
+    g.Pin  = GPIO_PIN_1;
     g.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &g);
 }
