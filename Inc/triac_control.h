@@ -47,7 +47,7 @@
 /* ゼロクロス直後はAC瞬時電圧がほぼ0VでTRIACの保持電流を確保できない。
  * rbdimmerの既知問題: 50µs遅延でAC~5V → ラッチ閾値未満で点弧失敗。
  * P100実測で0Vになったため150µsを下限とする(必要なら200/300µsに引き上げ)。 */
-#define TRIAC_MIN_FIRE_DELAY_US 150U
+#define TRIAC_MIN_FIRE_DELAY_US 200U
 
 /* ── Z-Cデバウンス ───────────────────────────────────────── */
 #define TRIAC_ZC_DEBOUNCE_MS    3U               /* 3ms: TRIACノイズ対策 (rbdimmer準拠) */
